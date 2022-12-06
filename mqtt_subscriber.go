@@ -31,7 +31,7 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		//		ts0 := ptypes.TimestampString(rcd.Time)
 		if *topic != "" {
 			if strings.HasPrefix(rcd.Topic, *topic) {
-				ld := fmt.Sprintf("%s,%s", rcd.Topic, string(rcd.Record))
+				ld := fmt.Sprintf("%s:%s", rcd.Topic, string(rcd.Record))
 				log.Print(ld)
 			}
 		} else {
