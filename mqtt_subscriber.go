@@ -22,6 +22,7 @@ var (
 	topic           = flag.String("topic", "", "Subscribe MQTT Topic")
 	sxServerAddress string
 	mu              sync.Mutex
+	jsonClient      *sxutil.SXServiceClient
 )
 
 func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
@@ -33,6 +34,14 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 			if strings.HasPrefix(rcd.Topic, *topic) {
 				ld := fmt.Sprintf("%s:%s", rcd.Topic, string(rcd.Record))
 				log.Print(ld)
+				smo := sxutil.SupplyOpts{
+					Name: "stdin",
+					JSON: string(rcd.Record),
+				}
+				_, nerr := jsonClient.NotifySupply(&smo)
+				if nerr != nil { // connection failuer with current client
+					log.Printf("Connection failure", nerr)
+				}
 			}
 		} else {
 			ld := fmt.Sprintf("%s,%s", rcd.Topic, string(rcd.Record))
@@ -77,7 +86,7 @@ func main() {
 	go sxutil.HandleSigInt()
 	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
 
-	channelTypes := []uint32{pbase.MQTT_GATEWAY_SVC}
+	channelTypes := []uint32{pbase.MQTT_GATEWAY_SVC, pbase.JSON_DATA_SVC}
 	// obtain synerex server address from nodeserv
 	srv, err := sxutil.RegisterNode(*nodesrv, "MQTT-Subscriber", channelTypes, nil)
 	if err != nil {
@@ -89,12 +98,13 @@ func main() {
 
 	sxServerAddress = srv
 	client := sxutil.GrpcConnectServer(srv)
-	argJSON := fmt.Sprintf("{Clt:MQTT-Sub:%s}", *topic)
-	sclient := sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON)
+	argJSON := fmt.Sprintf("{Clt:MQTT-to-JSON:%s}", *topic)
+	mqttClient := sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON)
+	jsonClient = sxutil.NewSXServiceClient(client, pbase.JSON_DATA_SVC, argJSON)
 
 	wg.Add(1)
 	log.Print("Subscribe Topic ", *topic)
-	go subscribeMQTTSupply(sclient)
+	go subscribeMQTTSupply(mqttClient)
 	wg.Wait()
 
 	sxutil.CallDeferFunctions() // cleanup!
