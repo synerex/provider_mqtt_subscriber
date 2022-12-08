@@ -33,10 +33,12 @@ func supplyMQTTCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		if *topic != "" {
 			if strings.HasPrefix(rcd.Topic, *topic) {
 				ld := fmt.Sprintf("%s:%s", rcd.Topic, string(rcd.Record))
+				carnum := rcd.Topic[len(*topic)+1:]
+				jsonStr := fmt.Sprintf("%s,%s", carnum, string(rcd.Record))
 				log.Print(ld)
 				smo := sxutil.SupplyOpts{
 					Name: "stdin",
-					JSON: string(rcd.Record),
+					JSON: jsonStr,
 				}
 				_, nerr := jsonClient.NotifySupply(&smo)
 				if nerr != nil { // connection failuer with current client
